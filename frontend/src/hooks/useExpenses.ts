@@ -18,6 +18,7 @@ export function useExpenses(month: string, filters?: ExpenseFilters) {
     queryFn: ({ pageParam }) => api.listExpenses(month, pageParam, PAGE_SIZE, filters),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.page + 1 : undefined),
+    placeholderData: (previousData) => previousData,
   });
 }
 

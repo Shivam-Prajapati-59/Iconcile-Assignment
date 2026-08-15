@@ -95,7 +95,6 @@ export default function ExpenseTable({ month }: ExpenseTableProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-        {isLoading && <p className="py-8 text-center text-muted-foreground">Loading…</p>}
         {isError && (
           <p className="py-8 text-center text-destructive">
             {error instanceof Error ? error.message : "Failed to load expenses"}
@@ -106,7 +105,7 @@ export default function ExpenseTable({ month }: ExpenseTableProps) {
             No expenses recorded for this month.
           </p>
         )}
-        {(rows.length > 0 || hasActiveFilters) && (
+        {(rows.length > 0 || hasActiveFilters || isLoading) && (
           <div className="flex flex-col overflow-hidden rounded-lg border border-border lg:min-h-0 lg:flex-1">
             <div className="overflow-auto lg:min-h-0 lg:flex-1">
               <table className="w-full min-w-[640px] text-sm">
@@ -159,7 +158,14 @@ export default function ExpenseTable({ month }: ExpenseTableProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.length === 0 && hasActiveFilters && (
+                  {isLoading && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                        Loading…
+                      </td>
+                    </tr>
+                  )}
+                  {rows.length === 0 && !isLoading && hasActiveFilters && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-muted-foreground">
                         No expenses match the selected filters.
