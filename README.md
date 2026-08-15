@@ -95,7 +95,7 @@ date,amount,currency,transactionType,accountName,vendorName,description
 
 - `date`: `YYYY-MM-DD` or ISO date-time (e.g. `2026-08-01T12:30:00`)
 - `amount`: positive decimal number
-- `currency`: 3-letter code (defaults to `INR` when blank)
+- `currency`: only `INR` is accepted (defaults to `INR` when blank)
 - `transactionType`: `EXPENSE` or `INCOME`
 - `vendorName`: required; used for rule-based categorization
 - Quoted fields (e.g. `"Team lunch, big order"`) are supported
@@ -107,7 +107,7 @@ Example: see `sample-expenses.csv`.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Health check |
-| GET | `/api/expenses?month=YYYY-MM` | List expenses (newest first, optional month) |
+| GET | `/api/expenses?month=YYYY-MM&page=0&size=20` | List expenses (newest first, optional month, paginated) |
 | POST | `/api/expenses` | Create an expense manually |
 | POST | `/api/expenses/import` | Import a CSV (`multipart/form-data`, field `file`) |
 | GET/POST | `/api/vendor-rules` | List / create vendor rules |

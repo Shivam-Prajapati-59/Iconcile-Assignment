@@ -3,15 +3,25 @@ package com.shivam.expensemanager.service;
 import com.shivam.expensemanager.api.*;
 import com.shivam.expensemanager.model.*;
 import com.shivam.expensemanager.repository.*;
-import jakarta.transaction.Transactional;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.math.*;
+import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ExpenseService {
@@ -19,11 +29,14 @@ public class ExpenseService {
     private final ExpenseRepository expenses;
     private final VendorCategoryRuleRepository rules;
     private final Validator validator;
+    private final ExpenseService self;
 
-    public ExpenseService(ExpenseRepository e, VendorCategoryRuleRepository r, Validator v) {
+    public ExpenseService(ExpenseRepository e, VendorCategoryRuleRepository r, Validator v,
+            @Lazy ExpenseService self) {
         expenses = e;
         rules = r;
         validator = v;
+        this.self = self;
     }
 
     private static final BigDecimal ANOMALY_THRESHOLD_MULTIPLIER = BigDecimal.valueOf(3);
@@ -42,7 +55,7 @@ public class ExpenseService {
         }
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Expense create(ExpenseRequest request) {
         validate(request);
         Expense e = new Expense();
@@ -74,9 +87,21 @@ public class ExpenseService {
                 .orElse("Uncategorized");
     }
 
-    @Transactional
+    /**
+     * Imports CSV rows so each row is persisted in its own independent transaction
+     * (via {@code self.create}, a Spring-managed proxy honoring REQUIRES_NEW). A
+     * failing row rolls back only itself and is collected as a row error, while
+     * previously imported rows remain committed.
+     */
     public ImportResult importCsv(String content) {
-        List<List<String>> rows = CsvParser.parse(content);
+        return importCsv(CsvParser.parse(content));
+    }
+
+    public ImportResult importCsv(InputStream input) throws IOException {
+        return importCsv(CsvParser.parse(new InputStreamReader(input, StandardCharsets.UTF_8)));
+    }
+
+    private ImportResult importCsv(List<List<String>> rows) {
         if (rows.size() < 2) {
             throw new IllegalArgumentException("CSV must include a header and at least one row");
         }
@@ -95,9 +120,12 @@ public class ExpenseService {
                 continue;
             }
             try {
-                String currency = row.get(2).isBlank() ? "INR" : row.get(2);
+                String currency = row.get(2).isBlank() ? "INR" : row.get(2).toUpperCase(Locale.ROOT);
+                if (!"INR".equals(currency)) {
+                    throw new IllegalArgumentException("Only INR currency is supported");
+                }
                 TransactionType type = TransactionType.valueOf(row.get(3).toUpperCase(Locale.ROOT));
-                Expense saved = create(new ExpenseRequest(
+                Expense saved = self.create(new ExpenseRequest(
                         parseOccurredAt(row.get(0)),
                         new BigDecimal(row.get(1)),
                         currency,
@@ -142,7 +170,22 @@ public class ExpenseService {
         }
         LocalDateTime start = month.atDay(1).atStartOfDay();
         LocalDateTime end = month.plusMonths(1).atDay(1).atStartOfDay();
-        return expenses.findByOccurredAtBetweenOrderByOccurredAtDesc(start, end);
+        return expenses.findByOccurredAtGreaterThanEqualAndOccurredAtLessThanOrderByOccurredAtDesc(start, end);
+    }
+
+    public ExpensePage page(YearMonth month, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 100),
+                Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("id")));
+        Page<Expense> result;
+        if (month == null) {
+            result = expenses.findAll(pageable);
+        } else {
+            LocalDateTime start = month.atDay(1).atStartOfDay();
+            LocalDateTime end = month.plusMonths(1).atDay(1).atStartOfDay();
+            result = expenses.findByOccurredAtGreaterThanEqualAndOccurredAtLessThan(start, end, pageable);
+        }
+        return new ExpensePage(result.getContent(), result.getNumber(), result.getSize(),
+                result.getTotalElements(), result.getTotalPages(), result.hasNext());
     }
 
     @Transactional
@@ -193,7 +236,8 @@ public class ExpenseService {
         }
 
         var top = vendors.entrySet().stream()
-                .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+                .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed()
+                        .thenComparing(Map.Entry.comparingByKey()))
                 .limit(5)
                 .map(x -> Map.of("vendor", x.getKey(), "total", x.getValue()))
                 .toList();

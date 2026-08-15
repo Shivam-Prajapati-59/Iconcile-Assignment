@@ -5,22 +5,35 @@ import static org.assertj.core.api.Assertions.*;
 import com.shivam.expensemanager.api.ExpenseRequest;
 import com.shivam.expensemanager.api.RuleRequest;
 import com.shivam.expensemanager.model.TransactionType;
+import com.shivam.expensemanager.repository.ExpenseRepository;
+import com.shivam.expensemanager.repository.VendorCategoryRuleRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
-@Transactional
 class DashboardTest {
 
     @Autowired
     ExpenseService service;
+
+    @Autowired
+    ExpenseRepository expenses;
+
+    @Autowired
+    VendorCategoryRuleRepository rules;
+
+    @BeforeEach
+    void cleanDatabase() {
+        expenses.deleteAll();
+        rules.deleteAll();
+    }
 
     private void expense(int day, String amount, String vendor) {
         service.create(new ExpenseRequest(

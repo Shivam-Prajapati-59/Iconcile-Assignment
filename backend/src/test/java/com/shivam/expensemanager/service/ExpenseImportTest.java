@@ -7,6 +7,8 @@ import com.shivam.expensemanager.api.ImportResult;
 import com.shivam.expensemanager.api.RuleRequest;
 import com.shivam.expensemanager.model.Expense;
 import com.shivam.expensemanager.model.TransactionType;
+import com.shivam.expensemanager.repository.ExpenseRepository;
+import com.shivam.expensemanager.repository.VendorCategoryRuleRepository;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,17 +19,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
-@Transactional
 class ExpenseImportTest {
 
     @Autowired
     ExpenseService service;
 
+    @Autowired
+    ExpenseRepository expenses;
+
+    @Autowired
+    VendorCategoryRuleRepository rules;
+
     @BeforeEach
-    void seedDefaultRules() {
+    void cleanAndSeedDefaultRules() {
+        expenses.deleteAll();
+        rules.deleteAll();
         service.addRule(new RuleRequest("Swiggy", "Food"));
         service.addRule(new RuleRequest("Zomato", "Food"));
         service.addRule(new RuleRequest("Uber", "Transport"));
@@ -80,6 +88,19 @@ class ExpenseImportTest {
     }
 
     @Test
+    void rejectsNonInrCurrencyAndDefaultsBlankToInr() {
+        ImportResult result = service.importCsv("""
+                date,amount,currency,transactionType,accountName,vendorName,description
+                2026-08-01,100.00,INR,EXPENSE,a,Swiggy,d1
+                2026-08-02,100.00,,EXPENSE,a,Uber,d2
+                2026-08-03,100.00,USD,EXPENSE,a,Amazon,d3
+                """);
+        assertThat(result.importedRows()).isEqualTo(2);
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errors().get(0).message()).contains("Only INR currency is supported");
+    }
+
+    @Test
     void rejectsCsvWithoutRows() {
         assertThatThrownBy(() -> service.importCsv("date,amount,currency,transactionType,accountName,vendorName,description\n"))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -95,7 +116,19 @@ class ExpenseImportTest {
                 "a",
                 "swiggy",
                 null));
-        List<Expense> all = service.list(null);
-        assertThat(all).extracting(e -> e.getCategory()).contains("Food");
+
+        ImportResult result = service.importCsv("""
+                date,amount,currency,transactionType,accountName,vendorName,description
+                2026-08-02,150.00,INR,EXPENSE,a,Swiggy,delivery
+                """);
+        assertThat(result.importedRows()).isEqualTo(1);
+        assertThat(result.failedRows()).isZero();
+
+        List<Expense> swiggy = service.list(null).stream()
+                .filter(e -> e.getVendorName().equalsIgnoreCase("swiggy"))
+                .toList();
+        assertThat(swiggy).hasSize(2);
+        assertThat(swiggy.get(0).getCategory()).isEqualTo(swiggy.get(1).getCategory());
+        assertThat(swiggy.get(0).getCategory()).isEqualTo("Food");
     }
 }

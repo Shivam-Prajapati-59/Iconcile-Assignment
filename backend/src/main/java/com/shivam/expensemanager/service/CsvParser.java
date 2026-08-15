@@ -1,10 +1,12 @@
 package com.shivam.expensemanager.service;
 
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Minimal RFC-4180-aware parser that supports quoted fields, embedded commas and
+ * Minimal RFC-4180-aware parser that supports quoted fields, embedded commas
+ * and
  * escaped quotes ({@code ""}). Kept deliberately small for this assignment; a
  * production importer would use a dedicated library.
  */
@@ -14,39 +16,55 @@ public final class CsvParser {
     }
 
     public static List<List<String>> parse(String content) {
+        try {
+            return parse(new StringReader(content));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public static List<List<String>> parse(Reader source) throws IOException {
+        PushbackReader reader = new PushbackReader(source, 1);
         List<List<String>> rows = new ArrayList<>();
         List<String> current = new ArrayList<>();
         StringBuilder field = new StringBuilder();
         boolean inQuotes = false;
 
-        for (int i = 0; i < content.length(); i++) {
-            char c = content.charAt(i);
+        int c;
+        while ((c = reader.read()) != -1) {
+            char ch = (char) c;
             if (inQuotes) {
-                if (c == '"') {
-                    if (i + 1 < content.length() && content.charAt(i + 1) == '"') {
+                if (ch == '"') {
+                    int next = reader.read();
+                    if (next == '"') {
                         field.append('"');
-                        i++;
                     } else {
                         inQuotes = false;
+                        if (next != -1) {
+                            reader.unread(next);
+                        }
                     }
                 } else {
-                    field.append(c);
+                    field.append(ch);
                 }
-            } else if (c == '"') {
+            } else if (ch == '"') {
                 inQuotes = true;
-            } else if (c == ',') {
+            } else if (ch == ',') {
                 current.add(field.toString().trim());
                 field.setLength(0);
-            } else if (c == '\n' || c == '\r') {
-                if (c == '\r' && i + 1 < content.length() && content.charAt(i + 1) == '\n') {
-                    i++;
+            } else if (ch == '\n' || ch == '\r') {
+                if (ch == '\r') {
+                    int next = reader.read();
+                    if (next != '\n' && next != -1) {
+                        reader.unread(next);
+                    }
                 }
                 current.add(field.toString().trim());
                 field.setLength(0);
                 rows.add(current);
                 current = new ArrayList<>();
             } else {
-                field.append(c);
+                field.append(ch);
             }
         }
 

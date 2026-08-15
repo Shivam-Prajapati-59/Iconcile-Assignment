@@ -13,6 +13,15 @@ export interface Expense {
   anomaly: boolean;
 }
 
+export interface ExpensePage {
+  items: Expense[];
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
 export interface ExpenseRequest {
   occurredAt: string;
   amount: number;

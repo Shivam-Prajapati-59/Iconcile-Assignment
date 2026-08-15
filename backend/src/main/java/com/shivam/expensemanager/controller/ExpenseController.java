@@ -4,7 +4,7 @@ import com.shivam.expensemanager.api.*;
 import com.shivam.expensemanager.model.*;
 import com.shivam.expensemanager.service.ExpenseService;
 import jakarta.validation.Valid;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.time.*;
 import java.util.*;
 import org.springframework.http.*;
@@ -27,13 +27,15 @@ public class ExpenseController {
     }
 
     @GetMapping("/expenses")
-    public List<Expense> list(@RequestParam(required = false) String month) {
-        return service.list(month == null ? null : YearMonth.parse(month));
+    public ExpensePage list(@RequestParam(required = false) String month,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return service.page(month == null ? null : YearMonth.parse(month), page, size);
     }
 
     @PostMapping(value = "/expenses/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ImportResult upload(@RequestParam MultipartFile file) throws Exception {
-        return service.importCsv(new String(file.getBytes(), StandardCharsets.UTF_8));
+    public ImportResult upload(@RequestParam MultipartFile file) throws IOException {
+        return service.importCsv(file.getInputStream());
     }
 
     @GetMapping("/vendor-rules")

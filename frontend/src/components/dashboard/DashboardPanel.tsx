@@ -1,7 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, Layers, TrendingUp, Wallet } from "lucide-react";
 
-import { api } from "@/lib/api";
+import { useDashboard } from "@/hooks/useDashboard";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,10 +24,7 @@ function LoadingCard() {
 }
 
 export default function DashboardPanel({ month }: DashboardPanelProps) {
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["dashboard", month],
-    queryFn: () => api.dashboard(month),
-  });
+  const { data, isLoading, isError, error } = useDashboard(month);
 
   if (isLoading) return <LoadingCard />;
   if (isError) {
@@ -43,8 +39,8 @@ export default function DashboardPanel({ month }: DashboardPanelProps) {
   if (!data) return null;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <Card>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <Card size="sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wallet className="size-4" />
@@ -57,7 +53,7 @@ export default function DashboardPanel({ month }: DashboardPanelProps) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card size="sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="size-4" />
@@ -68,7 +64,7 @@ export default function DashboardPanel({ month }: DashboardPanelProps) {
           {data.topVendors.length === 0 ? (
             <p className="text-muted-foreground">No expenses this month.</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="max-h-28 space-y-0.5 overflow-y-auto pr-1">
               {data.topVendors.map((v) => (
                 <li key={v.vendor} className="flex items-center justify-between gap-2 text-sm">
                   <span className="truncate">{v.vendor}</span>
@@ -80,7 +76,7 @@ export default function DashboardPanel({ month }: DashboardPanelProps) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card size="sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="size-4" />
@@ -94,7 +90,7 @@ export default function DashboardPanel({ month }: DashboardPanelProps) {
           {data.anomalies.length === 0 ? (
             <p className="text-muted-foreground">No anomalies this month.</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="max-h-28 space-y-1.5 overflow-y-auto pr-1">
               {data.anomalies.map((a) => (
                 <li
                   key={a.id}
@@ -111,25 +107,25 @@ export default function DashboardPanel({ month }: DashboardPanelProps) {
         </CardContent>
       </Card>
 
-      <Card className="lg:col-span-3">
+      <Card size="sm">
         <CardHeader>
-          <CardTitle>Monthly Totals by Category</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Layers className="size-4" />
+            Monthly Totals by Category
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {Object.keys(data.categoryTotals).length === 0 ? (
             <p className="text-muted-foreground">No expenses this month.</p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <ul className="max-h-28 space-y-1.5 overflow-y-auto pr-1">
               {Object.entries(data.categoryTotals).map(([category, total]) => (
-                <div
-                  key={category}
-                  className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm"
-                >
-                  <span className="text-muted-foreground">{category}</span>
+                <li key={category} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="truncate text-muted-foreground">{category}</span>
                   <span className="font-medium">{formatMoney(total)}</span>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </CardContent>
       </Card>

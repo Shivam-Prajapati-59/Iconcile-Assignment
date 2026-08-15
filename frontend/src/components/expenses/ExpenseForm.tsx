@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { api } from "@/lib/api";
 import type { ExpenseRequest, TransactionType } from "@/lib/types";
+import DatePicker from "@/components/common/DatePicker";
+import { useCreateExpense } from "@/hooks/useExpenses";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,27 +24,18 @@ function today(): string {
   return local.toISOString().slice(0, 10);
 }
 
-export default function ExpenseForm() {
-  const queryClient = useQueryClient();
+interface ExpenseFormProps {
+  onSuccess?: () => void;
+}
+
+export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
+  const mutation = useCreateExpense();
   const [date, setDate] = useState(today());
   const [amount, setAmount] = useState("");
   const [vendor, setVendor] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<TransactionType>("EXPENSE");
   const [error, setError] = useState<string | null>(null);
-
-  const mutation = useMutation({
-    mutationFn: (body: ExpenseRequest) => api.createExpense(body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      setAmount("");
-      setVendor("");
-      setDescription("");
-      setError(null);
-    },
-    onError: (err: Error) => setError(err.message),
-  });
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -61,14 +52,26 @@ export default function ExpenseForm() {
       setError("Amount must be a positive number");
       return;
     }
-    mutation.mutate({
-      occurredAt: `${date}T12:00:00`,
-      amount: parsed,
-      currency: "INR",
-      transactionType: type,
-      vendorName: vendor.trim(),
-      description: description.trim() || null,
-    });
+    mutation.mutate(
+      {
+        occurredAt: `${date}T12:00:00`,
+        amount: parsed,
+        currency: "INR",
+        transactionType: type,
+        vendorName: vendor.trim(),
+        description: description.trim() || null,
+      } satisfies ExpenseRequest,
+      {
+        onSuccess: () => {
+          setAmount("");
+          setVendor("");
+          setDescription("");
+          setError(null);
+          onSuccess?.();
+        },
+        onError: (err: Error) => setError(err.message),
+      },
+    );
   };
 
   return (
@@ -82,12 +85,7 @@ export default function ExpenseForm() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="exp-date">Date</Label>
-              <Input
-                id="exp-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <DatePicker value={date} onChange={setDate} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="exp-amount">Amount (INR)</Label>
@@ -137,9 +135,7 @@ export default function ExpenseForm() {
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {mutation.isSuccess && (
-            <p className="text-sm text-emerald-600">Expense saved.</p>
-          )}
+          {mutation.isSuccess && <p className="text-sm text-emerald-600">Expense saved.</p>}
 
           <Button type="submit" disabled={mutation.isPending} className="w-full">
             {mutation.isPending ? "Saving…" : "Save Expense"}

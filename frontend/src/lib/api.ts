@@ -1,6 +1,7 @@
 import type {
   DashboardSummary,
   Expense,
+  ExpensePage,
   ExpenseRequest,
   ImportResult,
   RuleRequest,
@@ -35,8 +36,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  listExpenses: (month?: string) =>
-    request<Expense[]>(`/api/expenses${month ? `?month=${month}` : ""}`),
+  listExpenses: (month?: string, page = 0, size = 20) =>
+    request<ExpensePage>(
+      `/api/expenses?page=${page}&size=${size}${month ? `&month=${month}` : ""}`,
+    ),
 
   createExpense: (body: ExpenseRequest) =>
     request<Expense>("/api/expenses", { method: "POST", body: JSON.stringify(body) }),

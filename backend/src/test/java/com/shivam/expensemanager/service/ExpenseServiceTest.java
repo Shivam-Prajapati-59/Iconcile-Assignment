@@ -3,25 +3,40 @@ package com.shivam.expensemanager.service;
 import static org.assertj.core.api.Assertions.*;
 
 import com.shivam.expensemanager.api.ExpenseRequest;
+import com.shivam.expensemanager.api.ExpensePage;
 import com.shivam.expensemanager.api.RuleRequest;
 import com.shivam.expensemanager.model.Expense;
 import com.shivam.expensemanager.model.TransactionType;
 import com.shivam.expensemanager.model.VendorCategoryRule;
+import com.shivam.expensemanager.repository.ExpenseRepository;
+import com.shivam.expensemanager.repository.VendorCategoryRuleRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
-@Transactional
 class ExpenseServiceTest {
 
     @Autowired
     ExpenseService service;
+
+    @Autowired
+    ExpenseRepository expenses;
+
+    @Autowired
+    VendorCategoryRuleRepository rules;
+
+    @BeforeEach
+    void cleanDatabase() {
+        expenses.deleteAll();
+        rules.deleteAll();
+    }
 
     private ExpenseRequest request(String vendor, String amount, TransactionType type) {
         return new ExpenseRequest(
@@ -107,5 +122,55 @@ class ExpenseServiceTest {
                 "Swiggy",
                 null)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private Expense createOnDay(int day, String vendor) {
+        return service.create(new ExpenseRequest(
+                LocalDateTime.of(2026, 8, day, 12, 0),
+                new BigDecimal("10.00"),
+                "INR",
+                TransactionType.EXPENSE,
+                "card",
+                vendor,
+                null));
+    }
+
+    @Test
+    void paginatesNewestFirstAcrossPages() {
+        createOnDay(1, "Alpha");
+        createOnDay(2, "Beta");
+        createOnDay(3, "Gamma");
+        createOnDay(4, "Delta");
+
+        ExpensePage first = service.page(null, 0, 2);
+        assertThat(first.items()).extracting(Expense::getVendorName)
+                .containsExactly("Delta", "Gamma");
+        assertThat(first.totalItems()).isEqualTo(4);
+        assertThat(first.totalPages()).isEqualTo(2);
+        assertThat(first.hasNext()).isTrue();
+
+        ExpensePage second = service.page(null, 1, 2);
+        assertThat(second.items()).extracting(Expense::getVendorName)
+                .containsExactly("Beta", "Alpha");
+        assertThat(second.hasNext()).isFalse();
+    }
+
+    @Test
+    void paginatesWithinSelectedMonth() {
+        createOnDay(1, "August");
+        service.create(new ExpenseRequest(
+                LocalDateTime.of(2026, 9, 1, 12, 0),
+                new BigDecimal("10.00"),
+                "INR",
+                TransactionType.EXPENSE,
+                "card",
+                "September",
+                null));
+
+        ExpensePage page = service.page(YearMonth.of(2026, 8), 0, 10);
+        assertThat(page.items()).extracting(Expense::getVendorName)
+                .containsExactly("August");
+        assertThat(page.totalItems()).isEqualTo(1);
+        assertThat(page.hasNext()).isFalse();
     }
 }
