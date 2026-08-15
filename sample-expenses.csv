@@ -1,0 +1,13 @@
+date,amount,currency,transactionType,accountName,vendorName,description
+2026-08-01,250.00,INR,EXPENSE,CUB - online payment,Swiggy,Lunch order
+2026-08-02,320.00,INR,EXPENSE,CUB - online payment,Swiggy,Dinner order
+2026-08-03,280.00,INR,EXPENSE,CUB - online payment,Zomato,Snacks
+2026-08-04,150.00,INR,EXPENSE,CUB - online payment,Uber,Office commute
+2026-08-05,220.00,INR,EXPENSE,CUB - online payment,Ola,Airport ride
+2026-08-06,899.00,INR,EXPENSE,CUB - online payment,Amazon,Household items
+2026-08-07,1500.00,INR,EXPENSE,CUB - online payment,Swiggy,Team dinner
+2026-08-10,60000.00,INR,INCOME,CUB - online payment,Employer,Monthly salary
+2026-08-12,199.00,INR,EXPENSE,CUB - online payment,Netflix,Monthly subscription
+2026-08-15,450.00,INR,EXPENSE,CUB - online payment,Apollo Pharmacy,Medicines
+2026-08-18,180.00,INR,EXPENSE,CUB - online payment,Local Kirana Store,Groceries
+2026-09-02,310.00,INR,EXPENSE,CUB - online payment,Swiggy,September lunch
