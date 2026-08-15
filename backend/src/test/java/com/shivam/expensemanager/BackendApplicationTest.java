@@ -73,7 +73,9 @@ class BackendApplicationTest {
 
     @Test
     void dotenvIsAppliedWhenNothingOverridesIt() throws Exception {
-        String output = runChild(childProcess());
+        ProcessBuilder pb = childProcess();
+        pb.environment().remove("DATABASE_URL");
+        String output = runChild(pb);
         assertThat(output).contains("PROPERTY=jdbc:postgresql://dotenv-host/db");
     }
 }

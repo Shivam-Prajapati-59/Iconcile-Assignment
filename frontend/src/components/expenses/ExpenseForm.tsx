@@ -33,6 +33,7 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
   const [date, setDate] = useState(today());
   const [amount, setAmount] = useState("");
   const [vendor, setVendor] = useState("");
+  const [account, setAccount] = useState("HDFC Bank");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<TransactionType>("EXPENSE");
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
       setError("Amount must be a positive number");
       return;
     }
+    setError(null);
     mutation.mutate(
       {
         occurredAt: `${date}T12:00:00`,
@@ -59,12 +61,14 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
         currency: "INR",
         transactionType: type,
         vendorName: vendor.trim(),
+        accountName: account.trim() || null,
         description: description.trim() || null,
       } satisfies ExpenseRequest,
       {
         onSuccess: () => {
           setAmount("");
           setVendor("");
+          setAccount("HDFC Bank");
           setDescription("");
           setError(null);
           onSuccess?.();
@@ -108,6 +112,16 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
               placeholder="Swiggy"
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="exp-account">Account Name</Label>
+            <Input
+              id="exp-account"
+              placeholder="HDFC Bank"
+              value={account}
+              onChange={(e) => setAccount(e.target.value)}
             />
           </div>
 

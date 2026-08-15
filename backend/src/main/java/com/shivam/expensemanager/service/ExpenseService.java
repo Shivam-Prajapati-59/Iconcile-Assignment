@@ -19,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -174,18 +175,71 @@ public class ExpenseService {
     }
 
     public ExpensePage page(YearMonth month, int page, int size) {
+        return page(month, page, size, null, null, null);
+    }
+
+    public ExpensePage page(YearMonth month, int page, int size,
+            List<String> vendors, List<String> categories, List<String> types) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 100),
                 Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("id")));
-        Page<Expense> result;
-        if (month == null) {
-            result = expenses.findAll(pageable);
-        } else {
-            LocalDateTime start = month.atDay(1).atStartOfDay();
-            LocalDateTime end = month.plusMonths(1).atDay(1).atStartOfDay();
-            result = expenses.findByOccurredAtGreaterThanEqualAndOccurredAtLessThan(start, end, pageable);
-        }
+        Page<Expense> result = expenses.findAll(filters(month, vendors, categories, types), pageable);
         return new ExpensePage(result.getContent(), result.getNumber(), result.getSize(),
                 result.getTotalElements(), result.getTotalPages(), result.hasNext());
+    }
+
+    private static Specification<Expense> filters(YearMonth month,
+            List<String> vendors, List<String> categories, List<String> types) {
+        Specification<Expense> spec = (root, query, cb) -> cb.conjunction();
+        if (month != null) {
+            LocalDateTime start = month.atDay(1).atStartOfDay();
+            LocalDateTime end = month.plusMonths(1).atDay(1).atStartOfDay();
+            spec = spec.and((root, query, cb) -> cb.and(
+                    cb.greaterThanOrEqualTo(root.get("occurredAt"), start),
+                    cb.lessThan(root.get("occurredAt"), end)));
+        }
+        List<String> vendorNames = cleanFilters(vendors);
+        if (vendorNames != null) {
+            List<String> lowered = vendorNames.stream()
+                    .map(v -> v.toLowerCase(Locale.ROOT))
+                    .toList();
+            spec = spec.and((root, query, cb) -> cb.lower(root.get("vendorName")).in(lowered));
+        }
+        List<String> categoryNames = cleanFilters(categories);
+        if (categoryNames != null) {
+            spec = spec.and((root, query, cb) -> root.get("category").in(categoryNames));
+        }
+        List<TransactionType> typeValues = cleanTypes(types);
+        if (typeValues != null) {
+            spec = spec.and((root, query, cb) -> root.get("transactionType").in(typeValues));
+        }
+        return spec;
+    }
+
+    private static List<String> cleanFilters(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+        List<String> cleaned = values.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        return cleaned.isEmpty() ? null : cleaned;
+    }
+
+    private static List<TransactionType> cleanTypes(List<String> values) {
+        List<String> cleaned = cleanFilters(values);
+        if (cleaned == null) {
+            return null;
+        }
+        return cleaned.stream()
+                .map(v -> {
+                    try {
+                        return TransactionType.valueOf(v.toUpperCase(Locale.ROOT));
+                    } catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException("Invalid transaction type: " + v);
+                    }
+                })
+                .toList();
     }
 
     @Transactional
@@ -220,6 +274,7 @@ public class ExpenseService {
         List<Expense> list = list(month);
         Map<String, BigDecimal> categories = new TreeMap<>();
         Map<String, BigDecimal> vendors = new HashMap<>();
+        Map<String, String> vendorDisplay = new HashMap<>();
         List<Expense> anomalies = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
 
@@ -229,7 +284,14 @@ public class ExpenseService {
             }
             total = total.add(e.getAmount());
             categories.merge(e.getCategory(), e.getAmount(), BigDecimal::add);
-            vendors.merge(e.getVendorName(), e.getAmount(), BigDecimal::add);
+            String vendorKey = e.getVendorName().toLowerCase(Locale.ROOT);
+            vendors.merge(vendorKey, e.getAmount(), BigDecimal::add);
+            String existing = vendorDisplay.get(vendorKey);
+            if (existing == null
+                    || (!Character.isUpperCase(existing.charAt(0))
+                            && Character.isUpperCase(e.getVendorName().charAt(0)))) {
+                vendorDisplay.put(vendorKey, e.getVendorName());
+            }
             if (e.isAnomaly()) {
                 anomalies.add(e);
             }
@@ -239,7 +301,8 @@ public class ExpenseService {
                 .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed()
                         .thenComparing(Map.Entry.comparingByKey()))
                 .limit(5)
-                .map(x -> Map.of("vendor", x.getKey(), "total", x.getValue()))
+                .map(x -> Map.of("vendor", vendorDisplay.getOrDefault(x.getKey(), x.getKey()),
+                        "total", x.getValue()))
                 .toList();
 
         return Map.of(

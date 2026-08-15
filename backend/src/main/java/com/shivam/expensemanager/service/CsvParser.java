@@ -68,6 +68,10 @@ public final class CsvParser {
             }
         }
 
+        if (inQuotes) {
+            throw new IllegalArgumentException("Unterminated quoted field at end of input");
+        }
+
         if (field.length() > 0 || !current.isEmpty()) {
             current.add(field.toString().trim());
             rows.add(current);

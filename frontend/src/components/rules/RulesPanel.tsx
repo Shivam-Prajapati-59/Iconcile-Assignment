@@ -55,14 +55,14 @@ export default function RulesPanel() {
   };
 
   return (
-    <Card className="flex min-h-0 flex-1 flex-col">
+    <Card className="flex flex-col lg:min-h-0 lg:flex-1">
       <CardHeader className="shrink-0">
         <CardTitle>Vendor Rules</CardTitle>
         <CardDescription>
           Vendor names are matched case-insensitively to assign a category automatically.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+      <CardContent className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
         <form onSubmit={submit} className="shrink-0 space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="rule-vendor">Vendor</Label>
@@ -70,6 +70,8 @@ export default function RulesPanel() {
               id="rule-vendor"
               placeholder="Swiggy"
               value={vendor}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "rule-form-error" : undefined}
               onChange={(e) => {
                 setVendor(e.target.value);
                 setError(null);
@@ -82,13 +84,19 @@ export default function RulesPanel() {
               id="rule-category"
               placeholder="Food"
               value={category}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "rule-form-error" : undefined}
               onChange={(e) => {
                 setCategory(e.target.value);
                 setError(null);
               }}
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p id="rule-form-error" role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <Button type="submit" disabled={createMutation.isPending} className="w-full">
             <Plus />
             Add Rule
@@ -101,12 +109,12 @@ export default function RulesPanel() {
           </p>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
+        <div className="overflow-y-auto pr-0.5 lg:min-h-0 lg:flex-1">
           {rulesQuery.isLoading && (
             <p className="text-sm text-muted-foreground">Loading rules…</p>
           )}
           {rulesQuery.isError && (
-            <p className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-destructive">
               {rulesQuery.error instanceof Error
                 ? rulesQuery.error.message
                 : "Failed to load rules"}

@@ -10,11 +10,12 @@ import {
 } from "@/components/ui/popover";
 
 interface DatePickerProps {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
 }
 
-export default function DatePicker({ value, onChange }: DatePickerProps) {
+export default function DatePicker({ id, value, onChange }: DatePickerProps) {
   const date = value ? new Date(`${value}T00:00:00`) : undefined;
 
   return (
@@ -22,6 +23,7 @@ export default function DatePicker({ value, onChange }: DatePickerProps) {
       <PopoverTrigger
         render={
           <Button
+            id={id}
             variant="outline"
             data-empty={!date}
             className="justify-start text-left font-normal data-[empty=true]:text-muted-foreground"

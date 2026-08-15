@@ -43,7 +43,7 @@ export default function Sidebar({ onAddExpense, onImportCsv }: SidebarProps) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden px-3 py-4">
+      <div className="flex flex-col gap-5 px-3 py-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
         <nav className="shrink-0 space-y-1" aria-label="Actions">
           {NAV_ITEMS.map((item) => (
             <Button
@@ -64,7 +64,7 @@ export default function Sidebar({ onAddExpense, onImportCsv }: SidebarProps) {
             </Button>
           ))}
         </nav>
-        <div ref={rulesRef} className="flex min-h-0 flex-1 scroll-mt-2 flex-col">
+        <div ref={rulesRef} className="flex flex-col scroll-mt-2 lg:min-h-0 lg:flex-1">
           <RulesPanel />
         </div>
       </div>

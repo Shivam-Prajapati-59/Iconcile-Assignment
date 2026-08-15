@@ -22,6 +22,12 @@ export interface ExpensePage {
   hasNext: boolean;
 }
 
+export interface ExpenseFilters {
+  vendors?: string[];
+  categories?: string[];
+  types?: TransactionType[];
+}
+
 export interface ExpenseRequest {
   occurredAt: string;
   amount: number;

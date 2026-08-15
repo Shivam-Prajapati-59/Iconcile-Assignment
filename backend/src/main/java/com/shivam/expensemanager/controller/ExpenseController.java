@@ -5,6 +5,7 @@ import com.shivam.expensemanager.model.*;
 import com.shivam.expensemanager.service.ExpenseService;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.*;
 import java.util.*;
 import org.springframework.http.*;
@@ -29,13 +30,19 @@ public class ExpenseController {
     @GetMapping("/expenses")
     public ExpensePage list(@RequestParam(required = false) String month,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return service.page(month == null ? null : YearMonth.parse(month), page, size);
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) List<String> vendors,
+            @RequestParam(required = false) List<String> categories,
+            @RequestParam(required = false) List<String> types) {
+        return service.page(month == null ? null : YearMonth.parse(month), page, size,
+                vendors, categories, types);
     }
 
     @PostMapping(value = "/expenses/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ImportResult upload(@RequestParam MultipartFile file) throws IOException {
-        return service.importCsv(file.getInputStream());
+        try (InputStream in = file.getInputStream()) {
+            return service.importCsv(in);
+        }
     }
 
     @GetMapping("/vendor-rules")

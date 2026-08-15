@@ -1,34 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 import { formatDateTime, formatMoney } from "@/lib/format";
-import { useExpenses } from "@/hooks/useExpenses";
+import type { TransactionType } from "@/lib/types";
+import { useExpenseFacets, useExpenses } from "@/hooks/useExpenses";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-const ALL = "all";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface ExpenseTableProps {
   month: string;
 }
 
 export default function ExpenseTable({ month }: ExpenseTableProps) {
+  const [vendorFilter, setVendorFilter] = useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+
+  const filters = useMemo(
+    () => ({
+      vendors: vendorFilter,
+      categories: categoryFilter,
+      types: typeFilter as TransactionType[],
+    }),
+    [vendorFilter, categoryFilter, typeFilter],
+  );
+
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useExpenses(month);
+    useExpenses(month, filters);
 
-  const [vendorFilter, setVendorFilter] = useState<string>(ALL);
-  const [categoryFilter, setCategoryFilter] = useState<string>(ALL);
-  const [typeFilter, setTypeFilter] = useState<string>(ALL);
-
-  const tableScrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const rows = useMemo(
@@ -40,24 +40,25 @@ export default function ExpenseTable({ month }: ExpenseTableProps) {
     [data],
   );
 
-  const vendorOptions = useMemo(
-    () => [...new Set(rows.map((e) => e.vendorName))].sort((a, b) => a.localeCompare(b)),
-    [rows],
-  );
-  const categoryOptions = useMemo(
-    () => [...new Set(rows.map((e) => e.category))].sort((a, b) => a.localeCompare(b)),
-    [rows],
-  );
+  const facets = useExpenseFacets(month);
+  const facetRows = useMemo(() => facets.data ?? [], [facets.data]);
 
-  const filteredRows = useMemo(
-    () =>
-      rows.filter(
-        (e) =>
-          (vendorFilter === ALL || e.vendorName === vendorFilter) &&
-          (categoryFilter === ALL || e.category === categoryFilter) &&
-          (typeFilter === ALL || e.transactionType === typeFilter),
-      ),
-    [rows, vendorFilter, categoryFilter, typeFilter],
+  const vendorOptions = useMemo(() => {
+    const byLower = new Map<string, string[]>();
+    for (const name of facetRows.map((e) => e.vendorName)) {
+      const key = name.toLowerCase();
+      byLower.set(key, [...(byLower.get(key) ?? []), name]);
+    }
+    return [...byLower.values()]
+      .map((spellings) => {
+        const capitalized = spellings.find((s) => /[A-Z]/.test(s.charAt(0)));
+        return capitalized ?? spellings[0];
+      })
+      .sort((a, b) => a.localeCompare(b));
+  }, [facetRows]);
+  const categoryOptions = useMemo(
+    () => [...new Set(facetRows.map((e) => e.category))].sort((a, b) => a.localeCompare(b)),
+    [facetRows],
   );
 
   useEffect(() => {
@@ -75,21 +76,13 @@ export default function ExpenseTable({ month }: ExpenseTableProps) {
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const scrollToMore = () => {
-    tableScrollRef.current?.scrollTo({ top: tableScrollRef.current.scrollHeight, behavior: "smooth" });
-  };
+  const hasActiveFilters =
+    vendorFilter.length > 0 || categoryFilter.length > 0 || typeFilter.length > 0;
 
-  const hasActiveFilters = vendorFilter !== ALL || categoryFilter !== ALL || typeFilter !== ALL;
-
-  const headerSelect =
-    "h-7 w-28 font-normal text-muted-foreground data-placeholder:text-muted-foreground";
-
-  const onFilterChange =
-    (setter: (value: string) => void) => (value: string | null) =>
-      setter(value ?? ALL);
+  const headerSelect = "w-28";
 
   return (
-    <Card size="sm" className="flex min-h-0 flex-1 flex-col">
+    <Card size="sm" className="flex flex-col lg:min-h-0 lg:flex-1">
       <CardHeader className="shrink-0">
         <CardTitle>
           Expenses — {month}
@@ -97,99 +90,87 @@ export default function ExpenseTable({ month }: ExpenseTableProps) {
             <span className="text-sm font-normal text-muted-foreground">
               {" "}
               ({data.pages[0]?.totalItems ?? 0} total)
-              {hasActiveFilters && <> · {filteredRows.length} shown</>}
             </span>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <CardContent className="flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
         {isLoading && <p className="py-8 text-center text-muted-foreground">Loading…</p>}
         {isError && (
           <p className="py-8 text-center text-destructive">
             {error instanceof Error ? error.message : "Failed to load expenses"}
           </p>
         )}
-        {!isLoading && !isError && rows.length === 0 && (
+        {!isLoading && !isError && rows.length === 0 && !hasActiveFilters && (
           <p className="py-8 text-center text-muted-foreground">
             No expenses recorded for this month.
           </p>
         )}
-        {!isLoading && !isError && rows.length > 0 && filteredRows.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">
-            No expenses match the selected filters.
-          </p>
-        )}
-        {rows.length > 0 && (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border">
-            <div ref={tableScrollRef} className="min-h-0 flex-1 overflow-y-auto">
-              <table className="w-full text-sm">
+        {(rows.length > 0 || hasActiveFilters) && (
+          <div className="flex flex-col overflow-hidden rounded-lg border border-border lg:min-h-0 lg:flex-1">
+            <div className="overflow-auto lg:min-h-0 lg:flex-1">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="px-3 py-2.5 align-bottom font-medium">Date</th>
-                    <th className="px-3 py-2.5 align-bottom">
-                      <div className="flex flex-col items-start gap-1">
+                    <th className="px-3 py-2.5 align-middle font-medium">Date</th>
+                    <th className="px-3 py-2.5 align-middle">
+                      <div className="flex items-center gap-2">
                         <span className="font-medium">Vendor</span>
-                        <Select value={vendorFilter} onValueChange={onFilterChange(setVendorFilter)}>
-                          <SelectTrigger size="sm" className={headerSelect} aria-label="Filter by vendor">
-                            <SelectValue placeholder="All vendors" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={ALL}>All vendors</SelectItem>
-                            {vendorOptions.map((v) => (
-                              <SelectItem key={v} value={v}>
-                                {v}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <MultiSelect
+                          placeholder="All vendors"
+                          ariaLabel="Filter by vendor"
+                          value={vendorFilter}
+                          onChange={setVendorFilter}
+                          options={vendorOptions}
+                          className={headerSelect}
+                        />
                       </div>
                     </th>
-                    <th className="px-3 py-2.5 align-bottom font-medium">Description</th>
-                    <th className="px-3 py-2.5 align-bottom">
-                      <div className="flex flex-col items-start gap-1">
+                    <th className="px-3 py-2.5 align-middle font-medium">Description</th>
+                    <th className="px-3 py-2.5 align-middle">
+                      <div className="flex items-center gap-2">
                         <span className="font-medium">Category</span>
-                        <Select value={categoryFilter} onValueChange={onFilterChange(setCategoryFilter)}>
-                          <SelectTrigger size="sm" className={headerSelect} aria-label="Filter by category">
-                            <SelectValue placeholder="All categories" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={ALL}>All categories</SelectItem>
-                            {categoryOptions.map((c) => (
-                              <SelectItem key={c} value={c}>
-                                {c}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <MultiSelect
+                          placeholder="All categories"
+                          ariaLabel="Filter by category"
+                          value={categoryFilter}
+                          onChange={setCategoryFilter}
+                          options={categoryOptions}
+                          className={headerSelect}
+                        />
                       </div>
                     </th>
-                    <th className="px-3 py-2.5 align-bottom">
-                      <div className="flex flex-col items-start gap-1">
+                    <th className="px-3 py-2.5 align-middle">
+                      <div className="flex items-center gap-2">
                         <span className="font-medium">Type</span>
-                        <Select value={typeFilter} onValueChange={onFilterChange(setTypeFilter)}>
-                          <SelectTrigger size="sm" className={headerSelect} aria-label="Filter by type">
-                            <SelectValue placeholder="All types" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={ALL}>All types</SelectItem>
-                            <SelectItem value="EXPENSE">Expense</SelectItem>
-                            <SelectItem value="INCOME">Income</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <MultiSelect
+                          placeholder="All types"
+                          ariaLabel="Filter by type"
+                          value={typeFilter}
+                          onChange={setTypeFilter}
+                          options={["EXPENSE", "INCOME"]}
+                          className={headerSelect}
+                        />
                       </div>
                     </th>
-                    <th className="px-3 py-2.5 align-bottom font-medium">
+                    <th className="px-3 py-2.5 align-middle font-medium">
                       <span className="block text-right">Amount</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map((e) => (
+                  {rows.length === 0 && hasActiveFilters && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                        No expenses match the selected filters.
+                      </td>
+                    </tr>
+                  )}
+                  {rows.map((e) => (
                     <tr
                       key={e.id}
-                      className={`border-b border-border/60 last:border-0 ${
-                        e.anomaly ? "bg-destructive/5" : ""
-                      }`}
+                      className={`border-b border-border/60 last:border-0 ${e.anomaly ? "bg-destructive/5" : ""
+                        }`}
                     >
                       <td className="py-2 px-3 whitespace-nowrap">{formatDateTime(e.occurredAt)}</td>
                       <td className="py-2 px-3">
@@ -207,9 +188,8 @@ export default function ExpenseTable({ month }: ExpenseTableProps) {
                       <td className="py-2 px-3">{e.category}</td>
                       <td className="py-2 px-3 text-muted-foreground">{e.transactionType}</td>
                       <td
-                        className={`py-2 px-3 text-right whitespace-nowrap font-medium ${
-                          e.transactionType === "INCOME" ? "text-emerald-600" : ""
-                        }`}
+                        className={`py-2 px-3 text-right whitespace-nowrap font-medium ${e.transactionType === "INCOME" ? "text-emerald-600" : ""
+                          }`}
                       >
                         {formatMoney(e.amount, e.currency)}
                       </td>
@@ -220,19 +200,6 @@ export default function ExpenseTable({ month }: ExpenseTableProps) {
               <div ref={sentinelRef} className="h-px" />
             </div>
           </div>
-        )}
-        {hasNextPage && filteredRows.length > 0 && (
-          <div className="flex shrink-0 justify-center py-2">
-            <Button type="button" variant="outline" size="sm" onClick={scrollToMore}>
-              Scroll down to see more
-              <ChevronDown />
-            </Button>
-          </div>
-        )}
-        {!hasNextPage && filteredRows.length > 0 && (
-          <p className="shrink-0 py-3 text-center text-sm text-muted-foreground">
-            You're all caught up.
-          </p>
         )}
       </CardContent>
     </Card>

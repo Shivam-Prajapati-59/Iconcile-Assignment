@@ -17,15 +17,15 @@ export default function App() {
 
   return (
     <QueryProvider>
-      <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground lg:flex-row">
+      <div className="flex h-dvh flex-col overflow-y-auto bg-background text-foreground lg:flex-row lg:overflow-hidden">
         <Sidebar
           onAddExpense={() => setExpenseOpen(true)}
           onImportCsv={() => setImportOpen(true)}
         />
 
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <main className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <DashboardHeader month={month} onMonthChange={setMonth} />
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-5">
+          <div className="flex flex-col gap-4 p-5 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
             <div className="shrink-0">
               <DashboardPanel month={month} />
             </div>
@@ -44,7 +44,7 @@ export default function App() {
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="p-0 sm:max-w-md">
           <DialogTitle className="sr-only">Import from CSV</DialogTitle>
-          <CsvImportPanel onSuccess={() => setImportOpen(false)} />
+          <CsvImportPanel />
         </DialogContent>
       </Dialog>
     </QueryProvider>
