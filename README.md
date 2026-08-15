@@ -5,7 +5,7 @@ anomaly detection, and a monthly dashboard.
 
 ## Demo
 
-🎬 Demo video: _coming soon — replace this line with your video URL._
+🎬 Demo video: _coming soon — https://drive.google.com/file/d/1G3-BnUuU7DSaNx2S7xrYPjLIcxJp3EzS/view?usp=sharing
 
 ## Features
 
