@@ -1,0 +1,5 @@
+date,amount,currency,transactionType,accountName,vendorName,description
+not-a-date,250.00,INR,EXPENSE,CUB - online payment,Swiggy,Invalid date
+2026-08-12,-10.00,INR,EXPENSE,CUB - online payment,Uber,Negative amount
+2026-08-13,100.00,INR,EXPENSE,CUB - online payment,,Missing vendor
+2026-08-14,100.00,INR,TRANSFER,CUB - online payment,Amazon,Invalid transaction type
