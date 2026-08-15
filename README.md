@@ -44,6 +44,18 @@ pnpm dev                      # http://localhost:5173
 
 Tests: `./mvnw test` (backend) · `pnpm build && pnpm lint` (frontend).
 
+## Deploy backend on Render
+
+The `backend/Dockerfile` builds and runs the API. On Render, create a **Docker** web
+service pointing at the `backend` directory and set these env vars:
+
+- `DATABASE_URL` — PostgreSQL URL (e.g. Neon)
+- `CORS_ORIGINS` — comma-separated frontend origins, e.g. `https://iconcile-assignment.vercel.app`
+- `FLYWAY_ENABLED=true` — applies migrations on boot (idempotent; defaults to `true`)
+
+`PORT` is set by Render automatically. Deploy the frontend on Vercel with
+`VITE_API_BASE_URL` set to the backend URL.
+
 ## CSV import
 
 Header required, columns in order:
